@@ -1,0 +1,29 @@
+- name: Change package source
+  hosts: all
+  vars:
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+
+  tasks:
+    - name: Backup current source list
+      become: "{{ ansible_user != 'root' }}"
+      changed_when: true
+      ansible.builtin.command:
+        cmd: mv /etc/apt/sources.list /etc/apt/sources.list.bak
+
+    - name: Write new source list
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.deb822_repository:
+        name: "debian"
+        signed_by: "/usr/share/keyrings/debian-archive-keyring.gpg"
+        uris: "https://mirrors.sustech.edu.cn/debian/"
+        suites: 'trixie trixie-updates'
+        components: 'main contrib non-free non-free-firmware'
+
+    - name: Write new security source list
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.deb822_repository:
+        name: "debian-security"
+        signed_by: "/usr/share/keyrings/debian-archive-keyring.gpg"
+        uris: "https://mirrors.sustech.edu.cn/debian-security/"
+        suites: 'trixie-security'
+        components: 'main contrib non-free non-free-firmware'

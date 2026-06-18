@@ -1,0 +1,224 @@
+- name: Software Management
+  hosts: all
+  vars:
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+
+  tasks:
+    - name: Updata apt cache && upgrade all pkgs
+      tags: [upgradepkg]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        clean: true
+        update_cache: true
+        upgrade: true
+
+    - name: Remove unused packages
+      tags: [autoremove]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        autoremove: true
+
+    - name: Add common packages
+      tags: [addcommonpkg]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - git
+          - htop
+          - net-tools
+          - vnstat
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - lrzsz
+          - dnsutils
+          - vim
+          - lsof
+          - telnet
+          - ufw
+          - python3-debian
+          - ncdu
+
+    - name: Gather minimal facts
+      tags: [docker, warp]
+      ansible.builtin.setup:
+        gather_subset:
+          - '!all'
+          - '!min'
+          - distribution
+
+    - name: Add Docker repo
+      tags: [docker]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.deb822_repository:
+        name: "docker"
+        signed_by: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+        uris: "https://download.docker.com/linux/{{ ansible_distribution | lower }}"
+        suites: '{{ ansible_distribution_release }}'
+        components: stable
+
+    - name: Install Docker packages
+      tags: [docker]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+
+    - name: Run Docker without root - add docker group
+      tags: [docker]
+      become: true
+      when: ansible_user != 'root'
+      ansible.builtin.group:
+        name: "docker"
+
+    - name: Run Docker without root - add user to docker group
+      tags: [docker]
+      become: true
+      when: ansible_user != 'root'
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: ["docker"]
+        append: true
+
+    - name: Add Warp repo
+      tags: [warp]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.deb822_repository:
+        name: "warp"
+        signed_by: "https://pkg.cloudflareclient.com/pubkey.gpg"
+        uris: "https://pkg.cloudflareclient.com/"
+        suites: "{{ ansible_distribution_release }}"
+        components: main
+
+    - name: Install Warp packages
+      tags: [warp]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - cloudflare-warp
+
+    - name: Configure & start Warp
+      tags: [warp]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.shell:
+        cmd: |
+          warp-cli --accept-tos registration new
+          warp-cli --accept-tos mode proxy
+          warp-cli --accept-tos proxy port 40000
+          warp-cli --accept-tos connect
+
+    - name: Restart warp-svc.service periodically (prevent OOM)
+      tags: [warp]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.cron:
+        name: "Restart warp-svc.service periodically"
+        minute: "0"
+        hour: "0"
+        weekday: "0"
+        job: "systemctl restart warp-svc.service"
+
+    - name: Install Nexttrace
+      tags: [nexttrace, addcommonpkg]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          curl -sL nxtrace.org/nt | bash
+
+    - name: Setup permission for Nexttrace
+      tags: [nexttrace, addcommonpkg]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.command: setcap cap_net_raw,cap_net_admin+eip /usr/local/bin/nexttrace
+
+    - name: Add necessary packages for wireguard
+      tags: [wgcf]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - wireguard
+          - openresolv
+
+    - name: Download wgcf utility
+      tags: [wgcf]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.get_url:
+        url: https://github.com/ViRb3/wgcf/releases/download/v2.2.30/wgcf_2.2.30_linux_amd64
+        dest: /usr/local/bin/wgcf
+        mode: '0755'
+
+    - name: Configure wgcf
+      tags: [wgcf]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.shell:
+        cmd: |
+          wgcf register --accept-tos --config /root/wgcf-account.toml
+          wgcf generate --config /root/wgcf-account.toml --profile /root/wgcf-profile.conf
+          sed '/^\[Peer\]/i\Table = off' /root/wgcf-profile.conf > /root/wg0.conf
+
+    - name: Move config file to place
+      tags: [wgcf]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/root/wg0.conf"
+        dest: "/etc/wireguard/wgcf.conf"
+        mode: '0600'
+
+    - name: Start wireguard service
+      tags: [wgcf]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.systemd:
+        name: wg-quick@wgcf
+        state: started
+        enabled: true
+
+    - name: Install xray
+      tags: [xray]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.shell:
+        cmd: |
+          bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+
+    - name: Write xray config file
+      tags: [xray]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.template:
+        force: true
+        src: templates/xray.j2
+        dest: /usr/local/etc/xray/config.json
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Allow 443/tcp in ufw for xray
+      tags: [xray]
+      become: "{{ ansible_user != 'root' }}"
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Restart xray service
+      tags: [xray]
+      changed_when: true
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.systemd:
+        name: xray
+        state: restarted
+        enabled: true

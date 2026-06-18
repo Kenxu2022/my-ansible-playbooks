@@ -1,0 +1,115 @@
+{
+  "log": {
+    "access": "none",
+    "error": "none",
+    "loglevel": "info",
+    "dnsLog": false
+  },
+  "inbounds": [
+    {
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "{{ uuid }}",
+            "email": "private",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "{{ domain }}:443",
+          "serverNames": ["{{ domain }}"],
+          "privateKey": "{{ privatekey }}",
+          "shortIds": ["114514"]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "UseIPv4v6"
+      }
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole",
+      "settings": {}
+    },
+{% if use_official_client %}
+    {
+      "tag": "warp",
+      "protocol": "socks",
+      "settings": {
+        "servers": [
+          {
+            "address": "127.0.0.1",
+            "port": 40000
+          }
+        ]
+      }
+    }
+{% else %}
+    {
+      "tag": "warp",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "tcpFastOpen": true,
+          "interface": "wgcf"
+        }
+      },
+      "settings": {
+        "domainStrategy": "UseIPv4v6"
+      }
+    }
+{% endif %}
+  ],
+  "routing": {
+    "domainStrategy": "IpIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "block",
+        "protocol": ["bittorrent"]
+      },
+      {
+        "type": "field",
+        "outboundTag": "block",
+        "user": "public",
+        "ip": "geoip:private"
+      },
+      {
+        "type": "field",
+        "outboundTag": "warp",
+        "domain": [
+          "geosite:netflix",
+          "geosite:openai",
+          "geosite:anthropic",
+          "geosite:disney",
+          "geosite:spotify",
+          "geosite:cloudflare",
+          "geosite:archive",
+          "geosite:bing",
+          "geosite:quora",
+          "geosite:discord",
+          "geosite:viu",
+          "geosite:hotstar",
+          "geosite:duolingo",
+          "geosite:nvidia",
+          "geosite:xai",
+          "geosite:category-social-media-!cn"
+        ]
+      }
+    ]
+  }
+}

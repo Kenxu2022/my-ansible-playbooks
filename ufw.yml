@@ -1,0 +1,27 @@
+- name: Firewall management
+  hosts: all
+  vars:
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+
+  tasks:
+    - name: Allow ip forward by default
+      tags: [ufwforward]
+      become: "{{ ansible_user != 'root' }}"
+      community.general.ufw:
+        direction: "routed"
+        default: "allow"
+
+    - name: Allow in traffic for specific port
+      tags: [ufwrule]
+      become: "{{ ansible_user != 'root' }}"
+      community.general.ufw:
+        rule: allow
+        port: "{{ rule.port }}"
+        proto: "{{ rule.proto | default(omit) }}"
+        comment: "{{ rule.comment | default(omit) }}"
+
+    - name: Enable ufw
+      tags: [enableufw]
+      become: "{{ ansible_user != 'root' }}"
+      community.general.ufw:
+        state: enabled

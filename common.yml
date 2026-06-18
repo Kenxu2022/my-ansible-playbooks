@@ -1,0 +1,56 @@
+- name: VPS Management
+  hosts: all
+  vars:
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    traffic_args: ['-d']
+
+  tasks:
+    - name: Show system info
+      tags: [sysinfo]
+      ansible.builtin.debug:
+        msg: |
+          === System Info ===
+          Hostname: {{ ansible_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+
+          === CPU ===
+          CPU: {{ ansible_processor[2] }}
+          vCPUs: {{ ansible_processor_vcpus }}
+
+          === Memory ===
+          Total: {{ ansible_memtotal_mb }} MB
+          Free: {{ ansible_memfree_mb }} MB
+
+          === Network Interfaces ===
+          {{ ansible_interfaces | join(', ') }}
+
+          === Disks ===
+          {% for m in ansible_mounts %}
+          == Index: {{ ansible_mounts.index(m) }} ==
+          Mount: {{ m.mount }}
+          Device: {{ m.device }}
+          FS: {{ m.fstype }}
+          Size: {{ m.size_total // 1024 // 1024 }} MB
+          Available: {{ m.size_available // 1024 // 1024 }} MB
+          =============
+          {% endfor %}
+
+    - name: Fetch traffic info
+      tags: [traffic]
+      changed_when: false
+      register: traffic_info
+      ansible.builtin.command:
+        argv: "{{ ['vnstat'] + ['-m'] }}"
+
+    - name: Display traffic info
+      tags: [traffic]
+      ansible.builtin.debug:
+        msg: |
+          === Traffic info for {{ inventory_hostname }} ({{ ansible_host }}) ===
+          {{ traffic_info.stdout }}
+
+    - name: Reboot machine
+      tags: [reboot]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.reboot:

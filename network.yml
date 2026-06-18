@@ -1,0 +1,38 @@
+- name: Network Management
+  hosts: all
+  vars:
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+
+  tasks:
+    - name: Enable BBR
+      tags: [bbr]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.blockinfile:
+        path: "/etc/sysctl.d/00-bbr.conf"
+        mode: "644"
+        create: true
+        prepend_newline: true
+        append_newline: true
+        block: |
+          net.ipv4.tcp_congestion_control=bbr
+
+    - name: Enable IP forwarding
+      tags: [kernelforward]
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.blockinfile:
+        path: "/etc/sysctl.d/01-ip-forward.conf"
+        mode: "644"
+        create: true
+        prepend_newline: true
+        append_newline: true
+        block: |
+          net.ipv4.ip_forward=1
+
+    - name: Apply sysctl config
+      tags: [bbr, forward]
+      become: "{{ ansible_user != 'root' }}"
+      register: sysctl_output
+      changed_when: sysctl_output.stdout | trim != ''
+      failed_when: false
+      ansible.builtin.command:
+        cmd: sysctl --system

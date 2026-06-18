@@ -1,0 +1,7 @@
+.ansible
+artifacts
+env
+group_vars/all/vault.yml
+inventory.ini
+vault_passwd
+wireguard

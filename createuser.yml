@@ -1,0 +1,100 @@
+- name: Create User
+  hosts: all
+  vars_prompt:
+    - name: username
+      private: false
+      prompt: "Enter username (default ken)"
+      default: ken
+    - name: password
+      prompt: "Enter password for user 'ken'"
+      private: true
+      confirm: true
+    - name: ssh_port
+      private: false
+      prompt: "Enter ssh port (default 22)"
+      default: "22"
+
+  tasks:
+    - name: User creation
+      ansible.builtin.user:
+        name: "{{ username }}"
+        password: "{{ password | password_hash(hashtype='sha512') }}"
+        groups: ["sudo"]
+        shell: /bin/bash
+        update_password: on_create
+        generate_ssh_key: true
+        ssh_key_type: ed25519
+
+    - name: Slurp public key
+      ansible.builtin.slurp:
+        src: "/home/{{ username }}/.ssh/id_ed25519.pub"
+      register: key_content_pub
+
+    - name: Append public key to authorized_keys
+      ansible.posix.authorized_key:
+        user: "{{ username }}"
+        key: "{{ key_content_pub['content'] | b64decode }}"
+
+    - name: Show debug info
+      ansible.builtin.debug:
+        msg: "Append public key for user {{ username }} to authorized_keys"
+
+    - name: Write private key to hosts
+      tags: [cpkey]
+      ansible.builtin.fetch:
+        src: "/home/{{ username }}/.ssh/id_ed25519"
+        dest: "~/.ssh/{{ inventory_hostname }}"
+        flat: true
+
+    - name: Append SSH info to config
+      tags: [cpkey]
+      delegate_to: localhost
+      ansible.builtin.blockinfile:
+        path: "~/.ssh/config"
+        create: true
+        mode: "644"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ inventory_hostname }}"
+        insertafter: EOF
+        prepend_newline: true
+        append_newline: true
+        block: |
+          Host {{ inventory_hostname }}
+          HostName {{ ansible_host }}
+          Port {{ ssh_port }}
+          User {{ username }}
+          IdentityFile ~/.ssh/{{ inventory_hostname }}
+
+    - name: Add command alias and PATH
+      tags: [bashrc]
+      ansible.builtin.blockinfile:
+        path: "/home/{{ username }}/.bashrc"
+        create: true
+        mode: "644"
+        owner: '{{ username }}'
+        group: '{{ username }}'
+        prepend_newline: true
+        append_newline: true
+        block: |
+          alias xraymodifyconfig='cd /usr/local/etc/xray && sudo vim config.json'
+          alias xraylog='sudo tail -f /var/log/xray/access.log'
+          alias ll='ls -l'
+          export PATH=$PATH:/sbin
+
+    - name: Slurp private key
+      tags: [showkey]
+      ansible.builtin.slurp:
+        src: "/home/{{ username }}/.ssh/id_ed25519"
+      register: key_content
+
+    - name: Print ssh private ssh_key_type
+      tags: [showkey]
+      ansible.builtin.debug:
+        msg: |
+          === Your SSH Private Key for user {{ username }} is: ===
+          {{ key_content['content'] | b64decode }}
+
+    - name: Export ssh_port for subsequent playbooks
+      ansible.builtin.set_stats:
+        data:
+          selected_ssh_port: "{{ ssh_port }}"
+        per_host: false

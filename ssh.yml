@@ -1,0 +1,35 @@
+- name: SSH management
+  hosts: all
+  vars:
+    random_port: "{{ 65535 | ansible.builtin.random(start=10000) }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+  vars_prompt:
+    - name: ssh_port
+      prompt: "Enter port (default random between 10000-65535)"
+      default: "{{ random_port }}"
+
+  tasks:
+    - name: Enhance SSH security
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.copy:
+        dest: "/etc/ssh/sshd_config.d/00-override.conf"
+        mode: '644'
+        content: |
+          Port {{ ssh_port }}
+          PermitRootLogin no
+          MaxAuthTries 3
+          PasswordAuthentication no
+          PermitEmptyPasswords no
+          PrintMotd no
+          PrintLastLog yes
+          ClientAliveInterval 30
+          ClientAliveCountMax 3
+
+    - name: Reload SSH service
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.service:
+        name: "sshd"
+        state: "reloaded"
+    - name: Print port
+      ansible.builtin.debug:
+        msg: "Your new SSH port is: {{ ssh_port }}"
