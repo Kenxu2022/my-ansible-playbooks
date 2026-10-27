@@ -108,6 +108,5 @@ r = ansible_runner.run(
 print("\nSetup completed! Here are information for connecting to xray:")
 print(f"Masquerade domain: {xray_domain}")
 print(f"UUID: {xray_uuid}")
-print(f"PrivateKey: {key_fields.get('privatekey')}")
-print(f"Password: {key_fields.get('password')}")
-print(f"Hash32: {key_fields.get('hash32')}")
+for k, v in key_fields.items():
+    print(f"{k}: {v}")
