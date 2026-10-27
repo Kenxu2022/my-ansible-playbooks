@@ -121,10 +121,10 @@
       tags: [warp]
       become: "{{ ansible_user != 'root' }}"
       ansible.builtin.cron:
-        name: "Restart warp-svc.service periodically"
+        name: "Restart warp-svc.service every 3 days"
         minute: "0"
         hour: "0"
-        weekday: "0"
+        day: "*/3"
         job: "systemctl restart warp-svc.service"
 
     - name: Install Nexttrace
