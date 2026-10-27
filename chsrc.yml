@@ -1,7 +1,7 @@
 - name: Change package source
   hosts: all
   vars:
-    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] | default(None) }}"
 
   tasks:
     - name: Backup current source list

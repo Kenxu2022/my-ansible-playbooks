@@ -1,7 +1,7 @@
 - name: VPS Management
   hosts: all
   vars:
-    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] | default(None) }}"
     traffic_args: ['-d']
 
   tasks:

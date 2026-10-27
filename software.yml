@@ -1,7 +1,7 @@
 - name: Software Management
   hosts: all
   vars:
-    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] | default(None) }}"
 
   tasks:
     - name: Updata apt cache && upgrade all pkgs

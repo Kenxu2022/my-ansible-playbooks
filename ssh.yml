@@ -2,7 +2,7 @@
   hosts: all
   vars:
     random_port: "{{ 65535 | ansible.builtin.random(start=10000) }}"
-    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] | default(None) }}"
   vars_prompt:
     - name: ssh_port
       prompt: "Enter port (default random between 10000-65535)"

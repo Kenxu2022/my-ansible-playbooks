@@ -1,7 +1,7 @@
 - name: Firewall management
   hosts: all
   vars:
-    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] }}"
+    ansible_become_password: "{{ vars[inventory_hostname ~ '_' ~ ansible_user ~ '_password'] | default(None) }}"
 
   tasks:
     - name: Allow ip forward by default
