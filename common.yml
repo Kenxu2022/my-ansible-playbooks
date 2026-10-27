@@ -45,7 +45,7 @@
       changed_when: false
       register: traffic_info
       ansible.builtin.command:
-        argv: "{{ ['vnstat'] + ['-m'] }}"
+        argv: "{{ ['vnstat'] + [traffic_args] }}"
 
     - name: Display traffic info
       tags: [traffic]
