@@ -28,7 +28,7 @@
     - name: Reload SSH service
       become: "{{ ansible_user != 'root' }}"
       ansible.builtin.service:
-        name: "sshd"
+        name: "ssh"
         state: "reloaded"
     - name: Print port
       ansible.builtin.debug:
