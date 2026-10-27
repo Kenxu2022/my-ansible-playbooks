@@ -5,6 +5,10 @@
     traffic_args: ['-d']
 
   tasks:
+    - name: Gather facts
+      tags: [sysinfo]
+      ansible.builtin.setup:
+
     - name: Show system info
       tags: [sysinfo]
       ansible.builtin.debug:
