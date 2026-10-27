@@ -150,13 +150,12 @@
         update_cache: true
         name:
           - wireguard
-          - openresolv
 
     - name: Download wgcf utility
       tags: [wgcf]
       become: "{{ ansible_user != 'root' }}"
       ansible.builtin.get_url:
-        url: https://github.com/ViRb3/wgcf/releases/download/v2.2.30/wgcf_2.2.30_linux_amd64
+        url: https://github.com/ViRb3/wgcf/releases/download/v2.3.1/wgcf_2.3.1_linux_amd64
         dest: /usr/local/bin/wgcf
         mode: '0755'
 
