@@ -132,6 +132,7 @@
       changed_when: true
       become: "{{ ansible_user != 'root' }}"
       ansible.builtin.shell:
+        executable: /bin/bash
         cmd: |
           set -o pipefail
           curl -sL nxtrace.org/nt | bash
